@@ -1,9 +1,16 @@
 #ifndef TCPCLIENT_H
 #define TCPCLIENT_H
 
+#pragma once
+
 #include <string>
+#include <netinet/in.h>
 #include "Client.h"
 
+/**********************************************************************************************
+ * https://www.thecrazyprogrammer.com/2017/06/socket-programming.html
+ *
+ **********************************************************************************************/
 // The amount to read in before we send a packet
 const unsigned int stdin_bufsize = 50;
 const unsigned int socket_bufsize = 100;
@@ -20,6 +27,13 @@ public:
    virtual void closeConn();
 
 private:
+    struct sockaddr_in serverIpAddr;
+    int clientSocketFD = 0;
+    int num_bytes_recv = 0;
+    int num_bytes_sent = 0;
+
+    char buffer[1024];
+    char response[2048];
 
 };
 

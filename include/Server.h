@@ -1,6 +1,10 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#pragma once
+
+#include <sys/socket.h>
+
 /******************************************************************************************
  * Server - Parent class for student's TCP server
  *
@@ -34,8 +38,6 @@ class Server {
       Server();
 
    private:
- 
-
       // Stuff to be left alone
 };
 
