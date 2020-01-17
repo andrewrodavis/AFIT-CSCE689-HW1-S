@@ -32,7 +32,7 @@ private:
     int num_bytes_recv = 0;
     int num_bytes_sent = 0;
 
-    char buffer[1024];
+    char buffer[2048];
     char response[2048];
 
 };

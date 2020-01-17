@@ -15,6 +15,10 @@ TCPConn::TCPConn(int server_fd, int client_fd){
 
 int TCPConn::getSocket() { return this->client_socket_fd; }
 
+int TCPConn::sendText(const char *msg) {
+    int size = strlen(msg);
+    return(send(this->client_socket_fd, msg, size, MSG_DONTWAIT));
+}
 int TCPConn::sendText(const char *msg, int size) {
     return(send(this->client_socket_fd, msg, size, MSG_DONTWAIT));
 }

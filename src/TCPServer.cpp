@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <cstring>
+#include <sstream>
 
 #include "TCPServer.h"
 #include "TCPConn.h"
@@ -72,6 +73,7 @@ void TCPServer::listenSvr() {
     int numberOfBytesRcvd = 0;
     int obj_index = 0;
     int select_ret_val = 0;
+    int valid_commands = 0;
 
     // Setup fd_set vars
     FD_ZERO(&this->master_fd_List);
@@ -83,22 +85,19 @@ void TCPServer::listenSvr() {
     this->max_fd = this->serverSocketFD;
 
     while(1){
-        std::cout << "In loop\n";
         // Reset appropriate variables
         obj_index = 0;
+        valid_commands = 0;
+        this->command_list.clear();
+        this->requested_data.str(std::string());
         memset(this->buffer, '\0', sizeof(this->buffer));
+
         this->read_fds = this->master_fd_List;      // Copy
 
         select_ret_val = (select(this->max_fd + 1, &this->read_fds, NULL, NULL, NULL) == -1);
         if(select_ret_val < 0){
             perror("Error: On Select");
             exit(1);    // Why 1?
-        }
-
-        // Check this server's socket
-        if(FD_ISSET(this->serverSocketFD, &this->read_fds)){
-
-            std::cout << "New connection\n";
         }
 
         // Check existing connections to do something with
@@ -146,13 +145,19 @@ void TCPServer::listenSvr() {
                         FD_CLR(i, &this->master_fd_List);
                     }
                         // Otherwise, data is received correctly as noted by select() ----------------------
-                        // At this point, we have the input from the client: numbe
+                        // At this point, we have the input from the client: number
                     else {
                         obj_index = this->getVectorIndex(i);
                         // Get the data from the client --> Stored in buffer already
-                        this->buffer[numberOfBytesRcvd] = '\0';
-                        std::cout << "Message received from client: " << this->buffer << "\n";
+//                        this->buffer[numberOfBytesRcvd + 1] = '\n';
+//                        std::cout << buffer << std::endl;
+                        valid_commands = this->checkForFullInput();
+
                         // Check for partial/multiple commands
+                        for(int i = 0; i < valid_commands; i++){
+                            this->process_request(this->command_list[i], this->tcpConnList[obj_index]);
+                        }
+                        this->tcpConnList[obj_index].sendText(this->requested_data.str().c_str());
                     }
                 }
             }
@@ -190,4 +195,104 @@ void TCPServer::shutdown() {
          }
      }
      perror("Error: TCPConn object DNE");
+ }
+
+/**********************************************************************************************
+* checkForFullInput - Checks the validity of the user input, including for multiple commands (returns how many commands), partial commands,
+*              and what the command is
+*
+*    Throws: returns 0 on partial command, error
+*    https://thispointer.com/c-how-to-find-an-element-in-vector-and-get-its-index/
+ *   **Work to be done: handle partial commands. I only handle multiple ones at this point
+**********************************************************************************************/
+int TCPServer::checkForFullInput() {
+    int num_of_commands = 0;
+    int temp_begin = 0;
+    int temp_end = 0;
+    std::string converted_buffer = this->buffer;
+
+    for(int i = 0; i < sizeof(this->buffer); i++){
+        // Checks if user types \n character
+        if(this->buffer[i] == '\\'){
+            if(this->buffer[i + 1] == 'n'){
+                // Indicates a new command, note
+                num_of_commands += 1;
+                // Need to add the command to the list of command
+                // Need to add the command to the list of command
+                temp_end = i;
+                this->command_list.push_back(converted_buffer.substr(temp_begin, (temp_end - temp_begin)));
+                temp_begin = i + 2;
+            }
+        }
+    }
+
+    // No need, assume that the user inputs a command given how the client is setup
+    // But, I do need to add the single command to the list
+    num_of_commands += 1;   // Need to add 1 for the implicit \n
+    if(num_of_commands == 1){
+        this->command_list.push_back(converted_buffer);
+    }
+    else{
+        this->command_list.push_back(converted_buffer.substr(temp_begin, (temp_end - temp_begin)));
+    }
+    // Debugging
+//    for(auto it = begin(this->command_list); it != end(this->command_list); it++){
+//        std::cout << *it << "\n";
+//    }
+
+    // At this point, the num_of_command list holds however many commands the user input, as well as a populated this->command_list
+    return num_of_commands;
+}
+/**********************************************************************************************
+ * process_request - This processes each request when multiple commands, or one command, are/is sent.
+ *
+ *
+ *    Throws:
+ *    Joke Source: https://unijokes.com/air-force-jokes/
+ **********************************************************************************************/
+void TCPServer::process_request(std::string command, TCPConn tcpConn) {
+     if(command == "1"){
+         this->requested_data << "-----Request Fulfilled-----\n";
+         this->requested_data << "Your file descriptor is: ";
+         this->requested_data << std::to_string(tcpConn.getSocket());
+         this->requested_data << "\n\n";
+     }
+     else if(command == "2"){
+         this->requested_data << "-----Request Fulfilled-----\n";
+         this->requested_data << "4 + 5 = 9\n\n";
+     }
+     else if(command == "3"){
+         this->requested_data << "-----Request Fulfilled-----\n";
+         this->requested_data << "The letter is B\n\n";
+     }
+     else if(command == "4"){
+         this->requested_data << "-----Request Fulfilled-----\n";
+         this->requested_data << "The number is 4\n\n";
+     }
+     else if(command == "5"){
+         this->requested_data << "-----Request Fulfilled-----\n";
+         this->requested_data << "An airman in a bar leans over to the guy next to him and says, \"Wanna hear a marine joke?\"\n";
+         this->requested_data << "The guy next to him replies, \"Well before you tell that joke, you should know something.\"\n";
+         this->requested_data << "I'm 6' tall, 200lbs, and I'm a a Marine.\n";
+         this->requested_data << "The guy sitting next to me is 6'2\", weights 225, and he's a Marine.\n";
+         this->requested_data << "The fella next to him is 6'5\", weighs 250, and he's a Marine.\n";
+         this->requested_data << "Now, you still wanna tell that joke?\"\n";
+         this->requested_data << "The Airman says, \"Nah, I don't want to have to explain it three times.\n\n";
+     }
+     else if(command == "passwd"){
+         this->requested_data << "-----Request Fulfilled-----\n";
+         this->requested_data << "passwd command does nothing yet\n\n";
+     }
+     else if(command == "exit"){
+         this->requested_data << "-----Request Fulfilled-----\n";
+         this->requested_data << "Goodbye\n\n";
+         tcpConn.sendText(requested_data.str().c_str());
+         close(tcpConn.getSocket());
+     }
+     else if(command == "menu"){
+         tcpConn.sendMenu();
+     }
+     else{
+         this->requested_data << "Invalid Command. Refer to the menu and try again.";
+     }
  }

@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <cstring>
+#include <unistd.h>
 
 
 /**********************************************************************************************
@@ -57,7 +58,17 @@ void TCPClient::connectTo(const char *ip_addr, unsigned short port) {
  **********************************************************************************************/
 
 void TCPClient::handleConnection() {
+    std::string input;
+    int tracker = 0;
+    int total_bytes_sent = 0;
+    int remaining_bytes_to_send = 0;
+
     while(1) {
+        tracker = 0;
+        total_bytes_sent = 0;
+        this->num_bytes_recv = 0;
+        this->num_bytes_sent = 0;
+        remaining_bytes_to_send = 0;
         memset(this->buffer, '\0', sizeof(this->buffer));
         memset(this->response, '\0', sizeof(this->response));
 
@@ -66,13 +77,22 @@ void TCPClient::handleConnection() {
             perror("Error: On recv()");
             exit(1);
         }
-        // This indicates if input is needed from the user
-        if((buffer[this->num_bytes_recv - 1]) == '0'){
-            buffer[this->num_bytes_recv - 1] = '\0';
-            std::cout << buffer;
-            std::cin >> response;
-            this->num_bytes_sent = send(this->clientSocketFD, this->response, sizeof(this->response), MSG_DONTWAIT);
+        else{
+            std::cout << buffer << "\n";
         }
+        std::cin >> this->response;
+        remaining_bytes_to_send = strlen(this->response);
+//        this->num_bytes_sent = send(this->clientSocketFD, this->response, std::strlen(this->response), MSG_DONTWAIT);
+        while(total_bytes_sent < strlen(this->response)){
+            this->num_bytes_sent = send(this->clientSocketFD, (this->response + total_bytes_sent), remaining_bytes_to_send, MSG_DONTWAIT);
+            if (this->num_bytes_sent == -1){
+                perror("Error: On Send");
+                break;
+            }
+            total_bytes_sent += this->num_bytes_sent;
+            remaining_bytes_to_send -= this->num_bytes_sent;
+        }
+//        this->num_bytes_sent = send(this->clientSocketFD, this->response, std::strlen(this->response), MSG_DONTWAIT);
     }
 }
 
@@ -83,6 +103,8 @@ void TCPClient::handleConnection() {
  **********************************************************************************************/
 
 void TCPClient::closeConn() {
+    close(this->clientSocketFD);
+    exit(0);
 }
 
 
